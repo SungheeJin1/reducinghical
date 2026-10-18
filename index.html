@@ -312,7 +312,7 @@ function buildForm(){
   $("items").innerHTML = ITEMS.map((it,i) => `
     <div class="item">
       <label class="name" for="in${i}">${it}</label>
-      <input id="in${i}" data-item="${it}" placeholder="먹은 것 · 양">
+      <input id="in${i}" data-item="${it}" placeholder="먹은 것, 양">
       <button type="button" class="skip" data-skip="${i}" aria-pressed="false">안 먹음 X</button>
     </div>`).join("");
   $("items").addEventListener("click", e => {
@@ -327,7 +327,7 @@ function setSkip(i, on){
   b.setAttribute("aria-pressed", on);
   inp.disabled = on;
   if(on) inp.value = "";
-  inp.placeholder = on ? "참았어요 ♥" : "먹은 것 · 양";
+  inp.placeholder = on ? "참았어요 ♥" : "먹은 것, 양";
 }
 function fillForm(){
   const rec = days[$("date").value] || {};
