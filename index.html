@@ -280,7 +280,6 @@ td.weekend-end{background:#bdbdbd}
   </div>
 </section>
 
-<script src="firebase-config.js"></script>
 <script>
 const ITEMS = ["밥","빵","떡","과자","탄산","라떼","아이스크림","야식"];
 const KEY = "debut-project-days";
@@ -308,59 +307,25 @@ function loadLocal(){
 function saveLocal(){ try{ localStorage.setItem(KEY, JSON.stringify(days)); }catch(e){} }
 days = loadLocal();
 
-function applyRemote(next){
-  days = next;
-  if(!dirty) fillForm();
-  renderChart();
-}
-const loadFail = () => { $("storeNote").textContent = "기록을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요."; };
-
-// Family server: Firebase Firestore, configured in firebase-config.js
-async function connectFirebase(cfg){
-  const V = "https://www.gstatic.com/firebasejs/10.12.2/";
-  try{
-    const { initializeApp } = await import(V + "firebase-app.js");
-    const fs = await import(V + "firebase-firestore.js");
-    const store = fs.getFirestore(initializeApp(cfg));
-    const col = fs.collection(store, "days");
-    db = { save: (date, rec) => fs.setDoc(fs.doc(store, "days", date), rec) };
-    let first = true;
-    fs.onSnapshot(col, snap => {
-      if(snap.empty && snap.metadata.fromCache) return; // wait for the server's answer
-      if(first && snap.empty){ // brand-new server: start it with the paper chart
-        first = false;
-        Object.entries(PAPER).forEach(([d, r]) => db.save(d, r));
-        return;
-      }
-      first = false;
-      const next = {};
-      snap.forEach(d => { next[d.id] = d.data(); });
-      applyRemote(next);
-    }, loadFail);
-    $("storeNote").textContent = "가족 공용 기록표에 연결됐어요. 누가 적어도 모두에게 보여요.";
-  }catch(e){ db = null; loadFail(); }
-}
-
 async function connectStore(){
-  if(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey) return connectFirebase(window.FIREBASE_CONFIG);
-  $("storeNote").textContent = "지금은 이 기기에만 저장돼요.";
   if(!window.claude || !window.claude.use) return;
-  let cdb = null;
-  try{ cdb = await window.claude.use("db"); }catch(e){}
-  if(!cdb) return;
-  db = { save: (date, rec) => cdb.doc("days/" + date).set(rec) };
+  try{ db = await window.claude.use("db"); }catch(e){ db = null; }
+  if(!db) return;
   days = {};
-  cdb.collection("days").onSnapshot(snap => {
+  db.collection("days").onSnapshot(snap => {
     const next = {};
     snap.docs.forEach(d => { if(d.exists) next[d.id] = {...d.data()}; });
-    applyRemote(next);
-  }, loadFail);
+    days = next;
+    if(!dirty) fillForm();
+    renderChart();
+  }, () => { $("storeNote").textContent = "기록을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요."; });
   $("storeNote").textContent = "";
 }
 async function persist(date, rec){
   days[date] = rec;
-  if(db) await db.save(date, rec);
-  else saveLocal();
+  if(db){
+    await db.doc("days/" + date).set(rec);
+  } else saveLocal();
 }
 
 /* ---------- form ---------- */
