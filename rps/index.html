@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>손 가위바위보</title>
+<meta name="theme-color" content="#18203a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600&display=swap">
+<style>
+/* Layout: a scoreboard — score strip on top, two "hands" facing off (camera vs. app), one big call/action bar below. */
+:root{
+  --night:#18203a;      /* background */
+  --panel:#222c4d;      /* surfaces */
+  --line:#34406a;
+  --chalk:#f3f1ea;      /* text */
+  --chalk-soft:#a9b0cc;
+  --you:#52d3c4;        /* player side */
+  --cpu:#ff7a59;        /* app side */
+  --call:#ffd23f;       /* countdown / highlight */
+  --font-display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--night);color:var(--chalk);font-family:var(--font-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 24px)}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--call);outline-offset:3px}
+
+.wrap{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--font-display);font-weight:400;font-size:clamp(26px,5vw,36px);margin:0;letter-spacing:.02em;text-wrap:balance}
+.status{color:var(--chalk-soft);font-size:14px}
+
+/* score strip */
+.score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+.score .side{display:flex;flex-direction:column;gap:2px}
+.score .side.cpu{text-align:right}
+.score .label{font-size:12px;letter-spacing:.12em;color:var(--chalk-soft)}
+.score .num{font-family:var(--font-display);font-size:clamp(36px,8vw,52px);line-height:1;font-variant-numeric:tabular-nums}
+.score .you .num{color:var(--you)}
+.score .cpu .num{color:var(--cpu)}
+.score .mid{text-align:center;color:var(--chalk-soft);font-size:14px;font-variant-numeric:tabular-nums}
+.score .mid b{display:block;font-family:var(--font-display);font-weight:400;font-size:22px;color:var(--chalk)}
+
+/* the face-off */
+.arena{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{position:relative;border-radius:16px;overflow:hidden;background:var(--panel);border:2px solid var(--line);
+  aspect-ratio:4/3;max-width:100%;transition:border-color .2s}
+.card.you{border-color:color-mix(in srgb,var(--you) 55%,var(--line))}
+.card.cpu{border-color:color-mix(in srgb,var(--cpu) 55%,var(--line))}
+.card.win{border-color:var(--call);box-shadow:0 0 0 4px color-mix(in srgb,var(--call) 30%,transparent)}
+.tag{position:absolute;top:10px;left:10px;z-index:3;font-size:12px;letter-spacing:.12em;font-weight:600;
+  padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--night) 75%,transparent)}
+.card.you .tag{color:var(--you)}
+.card.cpu .tag{color:var(--cpu)}
+
+video,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#overlay{z-index:2;pointer-events:none}
+.cam-msg{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:24px;text-align:center;color:var(--chalk-soft)}
+.live{position:absolute;left:10px;right:10px;bottom:10px;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--night) 78%,transparent);font-size:14px}
+.live strong{font-family:var(--font-display);font-weight:400;font-size:22px;color:var(--you)}
+
+.hand{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.hand .glyph{font-size:clamp(84px,18vw,140px);line-height:1}
+.hand .name{font-family:var(--font-display);font-size:28px;color:var(--cpu)}
+.hand.shake .glyph{animation:shake .3s ease-in-out infinite}
+@keyframes shake{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-14px) rotate(-8deg)}}
+.hand.pop .glyph{animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{from{transform:scale(.4)}to{transform:scale(1)}}
+
+/* call bar */
+.call{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.shout{font-family:var(--font-display);font-size:clamp(40px,10vw,72px);line-height:1.1;min-height:1.1em;color:var(--call);text-wrap:balance}
+.shout.win{color:var(--you)}
+.shout.lose{color:var(--cpu)}
+.shout.draw{color:var(--chalk)}
+.detail{color:var(--chalk-soft);min-height:1.5em;margin:0}
+.go{font-family:var(--font-display);font-size:24px;padding:14px 40px;border-radius:999px;border:0;
+  background:var(--call);color:var(--night);transition:transform .1s}
+.go:active{transform:scale(.97)}
+.go:disabled{opacity:.45;cursor:default}
+.secondary{background:none;border:1px solid var(--line);color:var(--chalk-soft);border-radius:999px;padding:6px 16px;font-size:14px}
+.cam-msg .go{font-size:18px;padding:10px 24px}
+
+.history{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;min-height:28px}
+.history span{font-size:13px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--chalk-soft)}
+.history .w{border-color:var(--you);color:var(--you)}
+.history .l{border-color:var(--cpu);color:var(--cpu)}
+
+.help{color:var(--chalk-soft);font-size:14px;margin:0;text-align:center}
+@media (prefers-reduced-motion:reduce){.hand.shake .glyph,.hand.pop .glyph{animation:none}}
+@media (max-width:640px){
+  .arena{gap:10px}
+  .card{aspect-ratio:3/4}
+  .live span{display:none}
+  .live strong{font-size:16px}
+  .hand .glyph{font-size:64px}
+  .hand .name{font-size:22px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>손 가위바위보</h1>
+    <span class="status" id="status">카메라를 켜면 시작할 수 있어요</span>
+  </header>
+
+  <section class="score" aria-label="점수">
+    <div class="side you"><span class="label">나</span><span class="num" id="sYou">0</span></div>
+    <div class="mid"><b id="sRound">0판</b>무승부 <span id="sDraw">0</span></div>
+    <div class="side cpu"><span class="label">앱</span><span class="num" id="sCpu">0</span></div>
+  </section>
+
+  <section class="arena">
+    <div class="card you" id="cardYou">
+      <span class="tag">나 · 카메라</span>
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="cam-msg" id="camMsg">
+        <p id="camText">손을 카메라에 비추면 가위·바위·보를 알아봐요.</p>
+        <button class="go" id="camBtn" type="button">카메라 켜기</button>
+      </div>
+      <div class="live" id="live" hidden><span>지금 내 손</span><strong id="liveMove">—</strong></div>
+    </div>
+    <div class="card cpu" id="cardCpu">
+      <span class="tag">앱</span>
+      <div class="hand" id="cpuHand"><span class="glyph" id="cpuGlyph">✊</span><span class="name" id="cpuName">준비</span></div>
+    </div>
+  </section>
+
+  <section class="call">
+    <div class="shout" id="shout" aria-live="polite"></div>
+    <p class="detail" id="detail"></p>
+    <button class="go" id="playBtn" type="button" disabled>가위바위보!</button>
+    <div class="history" id="history" aria-label="최근 결과"></div>
+    <button class="secondary" id="resetBtn" type="button">점수 초기화</button>
+  </section>
+
+  <p class="help">"보!" 소리에 맞춰 손을 내밀어요. 스페이스바로도 시작할 수 있어요.<br>손바닥이나 손등이 카메라를 향하게, 손 전체가 화면에 들어오게 해 주세요.</p>
+</div>
+
+<script type="module">
+import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+const MOVES = {
+  rock:     { name: "바위", glyph: "✊" },
+  scissors: { name: "가위", glyph: "✌️" },
+  paper:    { name: "보",   glyph: "🖐️" },
+};
+const BEATS = { rock: "scissors", scissors: "paper", paper: "rock" };
+const KEYS = Object.keys(MOVES);
+
+const $ = id => document.getElementById(id);
+const video = $("video"), overlay = $("overlay"), ctx = overlay.getContext("2d");
+
+let landmarker = null;
+let current = null;            // gesture seen in the latest frame
+let samples = null;            // collects gestures while the round is being judged
+let playing = false;
+const score = { you: 0, cpu: 0, draw: 0 };
+
+// ---------- gesture from 21 hand landmarks ----------
+// A finger counts as open when its tip is clearly farther from the wrist than its middle joint.
+// Distances (not x/y directions) keep this working whichever way the hand is turned.
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z - b.z) * 0.5);
+function classify(lm) {
+  const w = lm[0];
+  const open = [[8, 6], [12, 10], [16, 14], [20, 18]].map(([tip, pip]) => dist(lm[tip], w) > dist(lm[pip], w) * 1.15);
+  const [index, middle, ring, pinky] = open;
+  const count = open.filter(Boolean).length;
+  if (count === 0) return "rock";
+  if (index && middle && !ring && !pinky) return "scissors";
+  if (count >= 3 && middle && ring) return "paper";
+  if (count === 1 && !index && !middle) return "rock"; // a pinky slipping out still reads as a fist
+  return null;
+}
+
+const BONES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+function draw(lm) {
+  const W = overlay.width = overlay.clientWidth * devicePixelRatio;
+  const H = overlay.height = overlay.clientHeight * devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+  if (!lm) return;
+  // match object-fit:cover so dots sit on the hand
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const s = Math.max(W / vw, H / vh), ox = (W - vw * s) / 2, oy = (H - vh * s) / 2;
+  const P = p => [p.x * vw * s + ox, p.y * vh * s + oy];
+  const color = getComputedStyle(document.documentElement).getPropertyValue("--you").trim();
+  ctx.strokeStyle = color; ctx.lineWidth = 3 * devicePixelRatio; ctx.lineCap = "round";
+  for (const [a, b] of BONES) { const [x1, y1] = P(lm[a]), [x2, y2] = P(lm[b]); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+  ctx.fillStyle = "#ffffff";
+  for (const p of lm) { const [x, y] = P(p); ctx.beginPath(); ctx.arc(x, y, 3.5 * devicePixelRatio, 0, 7); ctx.fill(); }
+}
+
+let lastTime = -1;
+function loop() {
+  if (video.readyState >= 2 && video.currentTime !== lastTime) {
+    lastTime = video.currentTime;
+    const res = landmarker.detectForVideo(video, performance.now());
+    const lm = res.landmarks?.[0];
+    current = lm ? classify(lm) : null;
+    draw(lm);
+    $("liveMove").textContent = lm ? (current ? `${MOVES[current].glyph} ${MOVES[current].name}` : "잘 모르겠어요") : "손이 안 보여요";
+    if (samples && current) samples.push(current);
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---------- camera + model ----------
+async function start() {
+  const btn = $("camBtn");
+  btn.disabled = true;
+  $("camText").textContent = "카메라를 여는 중…";
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+  } catch (e) {
+    $("camText").textContent = "카메라를 쓸 수 없어요. 브라우저에서 카메라 권한을 허용하고, https 주소로 열었는지 확인해 주세요.";
+    btn.disabled = false; btn.textContent = "다시 시도";
+    return;
+  }
+  $("camText").textContent = "손 인식 모델을 불러오는 중… (처음 한 번은 몇 초 걸려요)";
+  try {
+    const files = await FilesetResolver.forVisionTasks(WASM);
+    const opts = d => ({ baseOptions: { modelAssetPath: MODEL, delegate: d }, runningMode: "VIDEO", numHands: 1 });
+    try { landmarker = await HandLandmarker.createFromOptions(files, opts("GPU")); }
+    catch { landmarker = await HandLandmarker.createFromOptions(files, opts("CPU")); }
+  } catch (e) {
+    $("camText").textContent = "손 인식 모델을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.";
+    return;
+  }
+  $("camMsg").hidden = true;
+  $("live").hidden = false;
+  $("playBtn").disabled = false;
+  $("status").textContent = "준비 완료! 버튼을 누르고 \"보!\"에 맞춰 손을 내밀어요";
+  requestAnimationFrame(loop);
+}
+
+// ---------- one round ----------
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function setShout(text, cls = "") { const el = $("shout"); el.textContent = text; el.className = "shout " + cls; }
+
+async function play() {
+  if (playing || !landmarker) return;
+  playing = true;
+  $("playBtn").disabled = true;
+  $("cardYou").classList.remove("win"); $("cardCpu").classList.remove("win");
+  $("detail").textContent = "";
+  const hand = $("cpuHand");
+  hand.className = "hand shake";
+  $("cpuGlyph").textContent = "✊"; $("cpuName").textContent = "";
+
+  for (const word of ["가위", "바위"]) { setShout(word); await wait(650); }
+  setShout("보!");
+  // The app's pick is made only now, and the player's hand is read over the next moment.
+  const cpu = KEYS[Math.floor(Math.random() * 3)];
+  samples = [];
+  hand.className = "hand pop";
+  $("cpuGlyph").textContent = MOVES[cpu].glyph; $("cpuName").textContent = MOVES[cpu].name;
+  await wait(550);
+  const got = samples; samples = null;
+  const you = majority(got.slice(-12));
+
+  if (!you) {
+    setShout("다시!", "draw");
+    $("detail").textContent = "손을 알아보지 못했어요. 손 전체가 화면에 보이게 해서 다시 해 봐요.";
+  } else {
+    const result = you === cpu ? "draw" : BEATS[you] === cpu ? "win" : "lose";
+    score[result === "win" ? "you" : result === "lose" ? "cpu" : "draw"]++;
+    setShout({ win: "이겼다!", lose: "졌다…", draw: "비겼다" }[result], result);
+    $("detail").textContent = `나 ${MOVES[you].glyph} ${MOVES[you].name}  vs  앱 ${MOVES[cpu].glyph} ${MOVES[cpu].name}`;
+    if (result === "win") $("cardYou").classList.add("win");
+    if (result === "lose") $("cardCpu").classList.add("win");
+    addHistory(result, you, cpu);
+    renderScore();
+  }
+  $("playBtn").textContent = "한 판 더!";
+  $("playBtn").disabled = false;
+  playing = false;
+}
+
+function majority(list) {
+  const n = {};
+  for (const m of list) n[m] = (n[m] || 0) + 1;
+  return Object.keys(n).sort((a, b) => n[b] - n[a])[0] || null;
+}
+
+function renderScore() {
+  $("sYou").textContent = score.you; $("sCpu").textContent = score.cpu; $("sDraw").textContent = score.draw;
+  $("sRound").textContent = `${score.you + score.cpu + score.draw}판`;
+}
+function addHistory(result, you, cpu) {
+  const el = document.createElement("span");
+  el.className = { win: "w", lose: "l", draw: "" }[result];
+  el.textContent = `${MOVES[you].glyph} vs ${MOVES[cpu].glyph}`;
+  const h = $("history");
+  h.prepend(el);
+  while (h.children.length > 8) h.lastChild.remove();
+}
+
+$("camBtn").addEventListener("click", start);
+$("playBtn").addEventListener("click", play);
+$("resetBtn").addEventListener("click", () => {
+  score.you = score.cpu = score.draw = 0; renderScore();
+  $("history").replaceChildren(); setShout(""); $("detail").textContent = "";
+  $("cardYou").classList.remove("win"); $("cardCpu").classList.remove("win");
+});
+addEventListener("keydown", e => {
+  if (e.code === "Space" && e.target === document.body) { e.preventDefault(); play(); }
+});
+</script>
+</body>
+</html>
