@@ -1,7 +1,7 @@
 // Lets the app install to the home screen and open offline.
-const CACHE = "debut-v6";
+const CACHE = "debut-v7";
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png"])));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(["./", "index.html", "manifest.json", "rabbit-192.png", "rabbit-512.png"])));
   self.skipWaiting();
 });
 self.addEventListener("activate", e => e.waitUntil(self.clients.claim()));
