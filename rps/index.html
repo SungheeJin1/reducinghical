@@ -18,6 +18,7 @@
   --you:#52d3c4;        /* player side */
   --cpu:#ff7a59;        /* app side */
   --call:#ffd23f;       /* countdown / highlight */
+  --ink:#3be36b;        /* air-writing trace */
   --font-display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   color-scheme:dark;
@@ -97,10 +98,28 @@ video,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover
 .history .l{border-color:var(--cpu);color:var(--cpu)}
 
 .help{color:var(--chalk-soft);font-size:14px;margin:0;text-align:center}
+
+/* mode tabs */
+.tabs{display:flex;gap:6px;padding:4px;border-radius:999px;background:var(--panel);border:1px solid var(--line);align-self:flex-start}
+.tabs button{border:0;background:none;color:var(--chalk-soft);padding:8px 18px;border-radius:999px;font-weight:600}
+.tabs button[aria-selected="true"]{background:var(--chalk);color:var(--night)}
+body[data-mode="write"] .only-rps,body[data-mode="rps"] .only-write{display:none!important}
+body[data-mode="write"] .arena{grid-template-columns:1fr;max-width:720px;width:100%;margin:0 auto}
+body[data-mode="write"] .card.you{border-color:color-mix(in srgb,var(--ink) 55%,var(--line))}
+body[data-mode="write"] .live strong{color:var(--ink)}
+
+/* write mode: the number that was read */
+.write{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.digits{font-family:var(--font-display);font-size:clamp(64px,16vw,120px);line-height:1;letter-spacing:.08em;color:var(--ink);
+  min-height:1em;font-variant-numeric:tabular-nums}
+.digits.wait{color:var(--chalk-soft)}
+.meter{width:min(240px,60%);height:6px;border-radius:999px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--ink)}
 @media (prefers-reduced-motion:reduce){.hand.shake .glyph,.hand.pop .glyph{animation:none}}
 @media (max-width:640px){
   .arena{gap:10px}
   .card{aspect-ratio:3/4}
+  body[data-mode="write"] .card{aspect-ratio:4/5}
   .live span{display:none}
   .live strong{font-size:16px}
   .hand .glyph{font-size:64px}
@@ -108,14 +127,19 @@ video,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover
 }
 </style>
 </head>
-<body>
+<body data-mode="rps">
 <div class="wrap">
   <header>
     <h1>손 가위바위보</h1>
     <span class="status" id="status">카메라를 켜면 시작할 수 있어요</span>
   </header>
 
-  <section class="score" aria-label="점수">
+  <nav class="tabs" role="tablist" aria-label="모드">
+    <button type="button" role="tab" id="tabRps" data-mode="rps" aria-selected="true">가위바위보</button>
+    <button type="button" role="tab" id="tabWrite" data-mode="write" aria-selected="false">숫자 쓰기</button>
+  </nav>
+
+  <section class="score only-rps" aria-label="점수">
     <div class="side you"><span class="label">나</span><span class="num" id="sYou">0</span></div>
     <div class="mid"><b id="sRound">0판</b>무승부 <span id="sDraw">0</span></div>
     <div class="side cpu"><span class="label">앱</span><span class="num" id="sCpu">0</span></div>
@@ -132,13 +156,22 @@ video,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover
       </div>
       <div class="live" id="live" hidden><span>지금 내 손</span><strong id="liveMove">—</strong></div>
     </div>
-    <div class="card cpu" id="cardCpu">
+    <div class="card cpu only-rps" id="cardCpu">
       <span class="tag">앱</span>
       <div class="hand" id="cpuHand"><span class="glyph" id="cpuGlyph">✊</span><span class="name" id="cpuName">준비</span></div>
     </div>
   </section>
 
-  <section class="call">
+  <section class="write only-write">
+    <div class="digits wait" id="digits" aria-live="polite">?</div>
+    <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+    <p class="detail" id="writeDetail">검지 하나만 펴고(☝️) 허공에 숫자를 써 보세요.</p>
+    <button class="secondary" id="clearBtn" type="button">지우기</button>
+  </section>
+
+  <p class="help only-write">검지만 펴면 초록 선이 그려지고, 손가락을 접거나 손을 내리면 펜이 떨어져요.<br>숫자 사이에는 손가락을 잠깐 접었다 다시 펴고, 다 쓰고 1초쯤 기다리면 숫자를 읽어요.</p>
+
+  <section class="call only-rps">
     <div class="shout" id="shout" aria-live="polite"></div>
     <p class="detail" id="detail"></p>
     <button class="go" id="playBtn" type="button" disabled>가위바위보!</button>
@@ -146,7 +179,7 @@ video,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover
     <button class="secondary" id="resetBtn" type="button">점수 초기화</button>
   </section>
 
-  <p class="help">"보!" 소리에 맞춰 손을 내밀어요. 스페이스바로도 시작할 수 있어요.<br>손바닥이나 손등이 카메라를 향하게, 손 전체가 화면에 들어오게 해 주세요.</p>
+  <p class="help only-rps">"보!" 소리에 맞춰 손을 내밀어요. 스페이스바로도 시작할 수 있어요.<br>손바닥이나 손등이 카메라를 향하게, 손 전체가 화면에 들어오게 해 주세요.</p>
 </div>
 
 <script type="module">
@@ -184,6 +217,7 @@ function classify(lm) {
   if (count === 0) return "rock";
   if (index && middle && !ring && !pinky) return "scissors";
   if (count >= 3 && middle && ring) return "paper";
+  if (index && !middle && !ring && !pinky) return "point"; // ☝️ = pen down in write mode
   if (count === 1 && !index && !middle) return "rock"; // a pinky slipping out still reads as a fist
   return null;
 }
@@ -194,13 +228,36 @@ function draw(lm) {
   const W = overlay.width = overlay.clientWidth * devicePixelRatio;
   const H = overlay.height = overlay.clientHeight * devicePixelRatio;
   ctx.clearRect(0, 0, W, H);
-  if (!lm) return;
   // match object-fit:cover so dots sit on the hand
   const vw = video.videoWidth, vh = video.videoHeight;
   const s = Math.max(W / vw, H / vh), ox = (W - vw * s) / 2, oy = (H - vh * s) / 2;
   const P = p => [p.x * vw * s + ox, p.y * vh * s + oy];
-  const color = getComputedStyle(document.documentElement).getPropertyValue("--you").trim();
-  ctx.strokeStyle = color; ctx.lineWidth = 3 * devicePixelRatio; ctx.lineCap = "round";
+  const css = getComputedStyle(document.documentElement);
+  if (mode === "write") {
+    ctx.lineCap = ctx.lineJoin = "round";
+    // dark edge first so the green line reads on any background
+    for (const [color, width, glow] of [[css.getPropertyValue("--night").trim(), 15, 0], [css.getPropertyValue("--ink").trim(), 9, 12]]) {
+      ctx.strokeStyle = ctx.shadowColor = color; ctx.lineWidth = width * devicePixelRatio; ctx.shadowBlur = glow * devicePixelRatio;
+      for (const st of strokes) {
+        ctx.beginPath();
+        st.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        if (st.length === 1) { const [x, y] = P(st[0]); ctx.lineTo(x + 0.1, y); }
+        ctx.stroke();
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+  if (!lm) return;
+  if (mode === "write") {
+    // fingertip cursor: filled while the pen is down
+    const [x, y] = P(lm[8]);
+    ctx.beginPath(); ctx.arc(x, y, 10 * devicePixelRatio, 0, 7);
+    ctx.fillStyle = ctx.strokeStyle = css.getPropertyValue("--ink").trim();
+    ctx.lineWidth = 3 * devicePixelRatio;
+    penDown ? ctx.fill() : ctx.stroke();
+    return;
+  }
+  ctx.strokeStyle = css.getPropertyValue("--you").trim(); ctx.lineWidth = 3 * devicePixelRatio; ctx.lineCap = "round";
   for (const [a, b] of BONES) { const [x1, y1] = P(lm[a]), [x2, y2] = P(lm[b]); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
   ctx.fillStyle = "#ffffff";
   for (const p of lm) { const [x, y] = P(p); ctx.beginPath(); ctx.arc(x, y, 3.5 * devicePixelRatio, 0, 7); ctx.fill(); }
@@ -212,12 +269,190 @@ function loop() {
     lastTime = video.currentTime;
     const res = landmarker.detectForVideo(video, performance.now());
     const lm = res.landmarks?.[0];
-    current = lm ? classify(lm) : null;
+    const g = lm ? classify(lm) : null;
+    current = MOVES[g] ? g : null;
+    if (mode === "write") {
+      write(lm, g);
+      $("liveMove").textContent = !lm ? "손이 안 보여요" : penDown ? "☝️ 쓰는 중" : "펜 들림";
+    } else {
+      $("liveMove").textContent = lm ? (current ? `${MOVES[current].glyph} ${MOVES[current].name}` : "잘 모르겠어요") : "손이 안 보여요";
+      if (samples && current) samples.push(current);
+    }
     draw(lm);
-    $("liveMove").textContent = lm ? (current ? `${MOVES[current].glyph} ${MOVES[current].name}` : "잘 모르겠어요") : "손이 안 보여요";
-    if (samples && current) samples.push(current);
   }
+  if (mode === "write") tickWrite();
   requestAnimationFrame(loop);
+}
+
+// ---------- write mode: trace the index fingertip, then read the digits ----------
+let mode = "rps";
+let strokes = [];              // each stroke: [{x, y}] in video coords (0..1)
+let penDown = false, onFrames = 0, offFrames = 0, tip = null;
+let lastUp = 0, done = false;
+const READ_AFTER = 1200;       // ms with the pen up before the digits are read
+
+function write(lm, g) {
+  if (g === "point") { onFrames++; offFrames = 0; } else { offFrames++; onFrames = 0; }
+  if (!penDown && onFrames >= 2) {
+    penDown = true; tip = null;
+    if (done) { strokes = []; done = false; showDigits("…", true); $("writeDetail").textContent = "쓰는 중…"; }
+    strokes.push([]);
+  }
+  if (penDown && offFrames >= 3) {
+    penDown = false; lastUp = performance.now();
+    // drop the hook the tip makes while the finger folds, and accidental dots
+    const st = strokes[strokes.length - 1];
+    st.splice(Math.max(1, st.length - 2));
+    if (pathLength(st) < 0.02) strokes.pop();
+  }
+  if (penDown && g === "point") {
+    const p = lm[8];
+    tip = tip ? { x: tip.x * 0.45 + p.x * 0.55, y: tip.y * 0.45 + p.y * 0.55 } : { x: p.x, y: p.y };
+    strokes[strokes.length - 1].push(tip);
+  }
+}
+
+function tickWrite() {
+  const waiting = !penDown && !done && strokes.length > 0;
+  const t = waiting ? Math.min(1, (performance.now() - lastUp) / READ_AFTER) : 0;
+  $("meter").style.width = `${t * 100}%`;
+  if (waiting && t >= 1) read();
+}
+
+const pathLength = st => st.reduce((n, p, i) => i ? n + Math.hypot(p.x - st[i - 1].x, p.y - st[i - 1].y) : 0, 0);
+
+function showDigits(text, wait = false) {
+  const el = $("digits"); el.textContent = text; el.classList.toggle("wait", wait);
+}
+
+function clearWriting() {
+  strokes = []; done = false; penDown = false; onFrames = offFrames = 0;
+  showDigits("?", true); $("meter").style.width = "0";
+  $("writeDetail").textContent = "검지 하나만 펴고(☝️) 허공에 숫자를 써 보세요.";
+}
+
+// Split strokes into digits: strokes whose horizontal spans overlap belong to the same digit
+// (the two strokes of a 4, the top bar of a 5). Digits are read left to right as the player sees them.
+function groupStrokes() {
+  const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+  const items = strokes.map(st => {
+    const pts = st.map(p => ({ x: (1 - p.x) * vw, y: p.y * vh })); // un-mirror
+    const xs = pts.map(p => p.x);
+    return { pts, x0: Math.min(...xs), x1: Math.max(...xs) };
+  }).sort((a, b) => a.x0 - b.x0);
+  const groups = [];
+  for (const it of items) {
+    const g = groups[groups.length - 1];
+    const overlap = g ? Math.min(g.x1, it.x1) - Math.max(g.x0, it.x0) : -1;
+    const narrow = g ? Math.min(g.x1 - g.x0, it.x1 - it.x0) : 0;
+    if (g && overlap > 0.4 * narrow) { g.strokes.push(it.pts); g.x1 = Math.max(g.x1, it.x1); }
+    else groups.push({ strokes: [it.pts], x0: it.x0, x1: it.x1 });
+  }
+  return groups;
+}
+
+// Draw one digit the way MNIST digits look: white on black, longest side 20px, centre of mass at the middle of 28x28.
+const scratch = Object.assign(document.createElement("canvas"), { width: 112, height: 112 });
+function rasterize(group) {
+  const pts = group.strokes.flat();
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const w = Math.max(...xs) - x0, h = Math.max(...ys) - y0;
+  const s = 71 / Math.max(w, h, 1); // + 9px line width ≈ 80px = 20px of 28
+  const c = scratch.getContext("2d", { willReadFrequently: true });
+  c.fillStyle = "#000"; c.fillRect(0, 0, 112, 112);
+  c.strokeStyle = "#fff"; c.lineWidth = 9; c.lineCap = c.lineJoin = "round";
+  for (const st of group.strokes) {
+    c.beginPath();
+    st.forEach((p, i) => { const X = 56 + (p.x - x0 - w / 2) * s, Y = 56 + (p.y - y0 - h / 2) * s; i ? c.lineTo(X, Y) : c.moveTo(X, Y); });
+    if (st.length === 1) c.lineTo(56.1, 56);
+    c.stroke();
+  }
+  const px = c.getImageData(0, 0, 112, 112).data;
+  const img = new Float32Array(784);
+  for (let y = 0; y < 112; y++) for (let x = 0; x < 112; x++) img[(y >> 2) * 28 + (x >> 2)] += px[(y * 112 + x) * 4] / 255 / 16;
+  // shift so the centre of mass lands on (14, 14)
+  let m = 0, mx = 0, my = 0;
+  img.forEach((v, i) => { m += v; mx += v * (i % 28); my += v * Math.floor(i / 28); });
+  if (!m) return img;
+  const dx = 14 - mx / m, dy = 14 - my / m, out = new Float32Array(784);
+  for (let y = 0; y < 28; y++) for (let x = 0; x < 28; x++) {
+    const sx = x - dx, sy = y - dy, fx = Math.floor(sx), fy = Math.floor(sy), ax = sx - fx, ay = sy - fy;
+    const at = (X, Y) => (X >= 0 && X < 28 && Y >= 0 && Y < 28 ? img[Y * 28 + X] : 0);
+    out[y * 28 + x] = at(fx, fy) * (1 - ax) * (1 - ay) + at(fx + 1, fy) * ax * (1 - ay) + at(fx, fy + 1) * (1 - ax) * ay + at(fx + 1, fy + 1) * ax * ay;
+  }
+  return out;
+}
+
+// Small CNN trained on MNIST (conv16 → pool → conv32 → pool → dense128 → 10), weights in digits.json as int8.
+let net = null;
+async function loadNet() {
+  const raw = await (await fetch("digits.json")).json();
+  net = {};
+  for (const [k, t] of Object.entries(raw)) {
+    if (t.f) { net[k] = Float32Array.from(t.f); continue; }
+    const q = new Int8Array(Uint8Array.from(atob(t.q), ch => ch.charCodeAt(0)).buffer);
+    const O = t.shape[t.shape.length - 1], w = new Float32Array(q.length);
+    for (let i = 0; i < q.length; i++) w[i] = q[i] * t.scale[i % O];
+    net[k] = w;
+  }
+}
+function conv(x, S, C, w, b, O) {          // 3x3, same padding, ReLU; HWC layout
+  const y = new Float32Array(S * S * O);
+  for (let r = 0; r < S; r++) for (let c = 0; c < S; c++) {
+    const o0 = (r * S + c) * O;
+    for (let o = 0; o < O; o++) y[o0 + o] = b[o];
+    for (let ky = 0; ky < 3; ky++) { const rr = r + ky - 1; if (rr < 0 || rr >= S) continue;
+      for (let kx = 0; kx < 3; kx++) { const cc = c + kx - 1; if (cc < 0 || cc >= S) continue;
+        const i0 = (rr * S + cc) * C, w0 = (ky * 3 + kx) * C * O;
+        for (let ci = 0; ci < C; ci++) { const v = x[i0 + ci]; if (!v) continue; const wi = w0 + ci * O;
+          for (let o = 0; o < O; o++) y[o0 + o] += v * w[wi + o]; } } }
+  }
+  for (let i = 0; i < y.length; i++) if (y[i] < 0) y[i] = 0;
+  return y;
+}
+function pool(x, S, C) {
+  const H = S / 2, y = new Float32Array(H * H * C);
+  for (let r = 0; r < H; r++) for (let c = 0; c < H; c++) for (let ch = 0; ch < C; ch++) {
+    const at = (R, Cc) => x[(R * S + Cc) * C + ch];
+    y[(r * H + c) * C + ch] = Math.max(at(2 * r, 2 * c), at(2 * r, 2 * c + 1), at(2 * r + 1, 2 * c), at(2 * r + 1, 2 * c + 1));
+  }
+  return y;
+}
+function dense(x, w, b, relu) {
+  const O = b.length, y = Float32Array.from(b);
+  for (let i = 0; i < x.length; i++) { const v = x[i]; if (!v) continue; for (let o = 0; o < O; o++) y[o] += v * w[i * O + o]; }
+  if (relu) for (let o = 0; o < O; o++) if (y[o] < 0) y[o] = 0;
+  return y;
+}
+function predict(img) {
+  let x = pool(conv(img, 28, 1, net.c1, net.b1, 16), 28, 16);
+  x = pool(conv(x, 14, 16, net.c2, net.b2, 32), 14, 32);
+  const z = dense(dense(x, net.d1, net.e1, true), net.d2, net.e2, false);
+  const mx = Math.max(...z), e = z.map(v => Math.exp(v - mx)), sum = e.reduce((a, b) => a + b);
+  const digit = z.indexOf(mx);
+  return { digit, p: e[digit] / sum };
+}
+
+function read() {
+  done = true; $("meter").style.width = "0";
+  if (!net) { $("writeDetail").textContent = "숫자 인식 모델을 아직 불러오는 중이에요. 잠시 뒤 다시 써 주세요."; strokes = []; showDigits("?", true); return; }
+  const res = groupStrokes().map(g => predict(rasterize(g)));
+  showDigits(res.map(r => r.digit).join(""));
+  const unsure = res.filter(r => r.p < 0.6).length;
+  $("writeDetail").textContent = unsure
+    ? `${res.length}자리를 읽었어요. 조금 헷갈리는 글자가 있었어요. 다시 쓰려면 검지를 펴세요.`
+    : `${res.length}자리를 읽었어요. 새로 쓰려면 다시 검지를 펴세요.`;
+}
+
+function setMode(m) {
+  mode = m;
+  document.body.dataset.mode = m;
+  for (const b of document.querySelectorAll(".tabs button")) b.setAttribute("aria-selected", String(b.dataset.mode === m));
+  $("camText").textContent = m === "write" ? "카메라를 켜고 검지 끝으로 허공에 숫자를 써 보세요." : "손을 카메라에 비추면 가위·바위·보를 알아봐요.";
+  if (landmarker) $("status").textContent = m === "write" ? "검지 하나만 펴면 펜이 내려가요" : "준비 완료! 버튼을 누르고 \"보!\"에 맞춰 손을 내밀어요";
+  clearWriting();
+  if (m === "write" && !net) loadNet().catch(() => { $("writeDetail").textContent = "숫자 인식 모델(digits.json)을 불러오지 못했어요. 새로고침해 주세요."; });
 }
 
 // ---------- camera + model ----------
@@ -247,7 +482,7 @@ async function start() {
   $("camMsg").hidden = true;
   $("live").hidden = false;
   $("playBtn").disabled = false;
-  $("status").textContent = "준비 완료! 버튼을 누르고 \"보!\"에 맞춰 손을 내밀어요";
+  setMode(mode);
   requestAnimationFrame(loop);
 }
 
@@ -321,8 +556,10 @@ $("resetBtn").addEventListener("click", () => {
   $("cardYou").classList.remove("win"); $("cardCpu").classList.remove("win");
 });
 addEventListener("keydown", e => {
-  if (e.code === "Space" && e.target === document.body) { e.preventDefault(); play(); }
+  if (e.code === "Space" && e.target === document.body && mode === "rps") { e.preventDefault(); play(); }
 });
+for (const b of document.querySelectorAll(".tabs button")) b.addEventListener("click", () => { if (!playing) setMode(b.dataset.mode); });
+$("clearBtn").addEventListener("click", clearWriting);
 </script>
 </body>
 </html>
