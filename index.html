@@ -503,17 +503,31 @@ function drawMeadow(c){
   const top = h*0.30;
   // grassy mound
   g.beginPath(); g.moveTo(0,h);
-  for(let x=0;x<=w+20;x+=20) g.quadraticCurveTo(x-10, top - 8 - rnd()*14, x, top + rnd()*8);
+  for(let x=0;x<=w+40;x+=40) g.quadraticCurveTo(x-20, top - 10 - rnd()*10, x, top + rnd()*6);
   g.lineTo(w,h); g.closePath();
   g.fillStyle = "#4fa64f"; g.fill(); g.strokeStyle = INK; g.lineWidth = 2.5; g.stroke();
+  // soft, curving grass tufts: a few leaves fanning out from one base, each bending at the tip
   const blades = (y0, n, cols, lw) => {
     for(let i=0;i<n;i++){
-      const x = rnd()*w, y = y0 + rnd()*(h-y0), bh = 10 + rnd()*18, lean = rnd()*14-7;
-      g.beginPath(); g.moveTo(x-4,y); g.quadraticCurveTo(x+lean*.4, y-bh*.6, x+lean, y-bh); g.quadraticCurveTo(x+lean*.4+3, y-bh*.5, x+4, y); g.closePath();
-      g.fillStyle = cols[Math.floor(rnd()*cols.length)]; g.fill(); g.lineWidth = lw; g.strokeStyle = "#2a6e30"; g.stroke();
+      const x = rnd()*w, y = y0 + rnd()*(h-y0), leaves = 2 + Math.floor(rnd()*3);
+      for(let j=0;j<leaves;j++){
+        const bh = 14 + rnd()*16, bw = 4.5 + rnd()*3;
+        const dir = (j - (leaves-1)/2) * 0.9 + (rnd()-.5)*.6;   // fan out
+        const tx = x + dir*bh*.55, ty = y - bh;                   // tip
+        const bend = dir*bh*.35;                                   // tip curls further outward
+        g.beginPath();
+        g.moveTo(x - bw, y);
+        const px = tx + bend*.25, r = bw*.45;                       // rounded tip
+        g.bezierCurveTo(x - bw, y - bh*.45, px - bw*.5 - bend*.2, ty + bh*.25, px - r, ty + r);
+        g.quadraticCurveTo(px, ty - r*1.4, px + r, ty + r);
+        g.bezierCurveTo(px + bw*.5 - bend*.1, ty + bh*.3, x + bw, y - bh*.4, x + bw, y);
+        g.closePath();
+        g.fillStyle = cols[Math.floor(rnd()*cols.length)]; g.fill();
+        g.lineWidth = lw; g.strokeStyle = "#2a6e30"; g.stroke();
+      }
     }
   };
-  blades(top, Math.round(w/5), ["#3f9a45","#5bb85a","#6cc768"], 1.4);
+  blades(top, Math.round(w/9), ["#3f9a45","#5bb85a","#6cc768"], 1.2);
   // flowers, back rows first so the front ones overlap
   const kinds = ["daisy","daisy","daisy","cosmos","cosmos","poppy","clover","lace"];
   const fl = [];
@@ -555,7 +569,7 @@ function drawMeadow(c){
         g.fillStyle = "#fffaf2"; g.fill(); g.stroke(); }
     }
   }
-  blades(h*0.8, Math.round(w/16), ["#3f9a45","#58b357"], 1.2);
+  blades(h*0.8, Math.round(w/22), ["#3f9a45","#58b357"], 1.1);
 }
 const meadows = document.querySelectorAll(".meadow canvas");
 const redrawMeadows = () => meadows.forEach(drawMeadow);
