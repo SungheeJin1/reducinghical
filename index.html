@@ -171,6 +171,16 @@ body.opening .door{transform:rotateY(-105deg)}
 .actions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-top:16px;flex-wrap:wrap}
 .toast{font-family:var(--font-display);color:var(--leaf-dark);min-height:1.2em}
 .note{color:var(--blush);font-size:.85rem;text-align:center;margin:0}
+.places h3{font-family:var(--font-display);font-weight:400;color:var(--rose-deep);margin:0 0 10px;font-size:1.2rem}
+.places ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.places a{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 10px;padding:8px 10px;border-radius:12px;
+  background:#fff;border:2px solid var(--blush);color:var(--ink);text-decoration:none}
+.places a:active{border-color:var(--rose)}
+.places a:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.places .pname{font-family:var(--font-display);font-size:1.1rem}
+.places .when{grid-row:span 2;font-size:.8rem;color:var(--ink-soft);text-align:right}
+.places .exit{display:flex;align-items:center;gap:6px;font-size:.95rem;color:var(--ink-soft)}
+.places .line{display:inline-grid;place-items:center;min-width:1.4rem;height:1.4rem;padding:0 4px;border-radius:999px;color:#fff;font-size:.8rem}
 
 /* ---------- gallery: the paper chart ---------- */
 .paper{background:#fdfdfb;border-radius:4px;padding:16px 12px;box-shadow:0 0 0 6px var(--gold),0 0 0 10px var(--gold-dark),0 16px 30px rgba(60,0,20,.5)}
@@ -250,6 +260,10 @@ td.weekend-end{background:#bdbdbd}
     </form>
     <p class="note">먹은 걸 적고, 참은 항목은 <b>안 먹음 X</b>를 눌러요. 먹은 양(200g, 1/3, 1캔)도 함께 적으면 좋아요.</p>
     <p class="note" id="storeNote"></p>
+    <div class="scroll-card places">
+      <h3>자주 가는 곳</h3>
+      <ul id="places"></ul>
+    </div>
   </div>
 </section>
 
@@ -428,6 +442,21 @@ $("chart").addEventListener("click", e => {
   $("date").value = td.dataset.date; fillForm(); show("hall");
 });
 $("chart").addEventListener("keydown", e => { if(e.key === "Enter") e.target.click(); });
+
+/* ---------- places I go: nearest subway exit, tap to open the map ---------- */
+const LINES = { 1:"#f06a00", 2:"#81bf48", 3:"#bb8c00" };   // Busan Metro line colors
+const PLACES = [
+  { name:"병원", when:"한 달에 한 번", station:"연산역", lines:[1,3], exit:1 },
+  { name:"사상터미널", when:"", station:"사상역", lines:[2], exit:5 },
+  { name:"피부과", when:"", station:"장전역", lines:[1], exit:4 },
+  { name:"가끔 가는 곳", when:"비정기", station:"구서역", lines:[1], exit:2 }
+];
+$("places").innerHTML = PLACES.map(p => `
+  <li><a href="https://map.kakao.com/?q=${encodeURIComponent(`${p.station} ${p.exit}번출구`)}" target="_blank" rel="noopener">
+    <span class="pname">${p.name}</span>
+    <span class="when">${p.when}</span>
+    <span class="exit">${p.lines.map(n => `<span class="line" style="background:${LINES[n]}">${n}</span>`).join("")}${p.station} ${p.exit}번 출구</span>
+  </a></li>`).join("");
 
 /* ---------- screens ---------- */
 function show(id){
